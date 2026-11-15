@@ -1,0 +1,37 @@
+name: Vérifications Linux et réseaux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Installer les commandes nécessaires
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iproute2 iputils-ping iptables dnsmasq-base dnsutils curl python3 procps
+
+      - name: Vérifier les scripts Bash
+        run: bash -n scripts/lab.sh scripts/firewall.sh
+
+      - name: Vérifier les fichiers du projet
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Exécuter les essais d'intégration et nettoyer
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          trap 'sudo bash scripts/lab.sh stop' EXIT
+          sudo bash scripts/lab.sh start
+          sudo bash scripts/lab.sh test
+          sudo bash scripts/lab.sh status
